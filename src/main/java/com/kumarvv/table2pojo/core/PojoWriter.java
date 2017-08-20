@@ -24,10 +24,14 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.WordUtils;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
-import java.util.stream.IntStream;
 
 import static com.kumarvv.table2pojo.model.UserPrefs.DONE;
 
@@ -83,10 +87,11 @@ public class PojoWriter extends Thread {
      * @param prefs
      * @param conn
      */
-    public PojoWriter(final UserPrefs prefs, final Connection conn, final BlockingQueue<String> queue) {
+    public PojoWriter(final UserPrefs prefs, final Connection conn, final BlockingQueue<String> queue, final int id) {
         this.prefs = prefs;
         this.conn = conn;
         this.queue = queue;
+        this.setName("writer-" + id);
     }
 
     /**
@@ -105,8 +110,7 @@ public class PojoWriter extends Thread {
                     break;
                 }
 
-                info("processing table: " + table);
-                //processTable(conn, table);
+                processTable(conn, table);
 
             } catch (InterruptedException ie) {
                 break;
@@ -128,33 +132,33 @@ public class PojoWriter extends Thread {
             return;
         }
 
-        try {
-            final Statement stmt = conn.createStatement();
-            final ResultSet rs = stmt.executeQuery(String.format(SQL_ALL, tableName.toUpperCase()));
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(String.format(SQL_ALL, tableName.toUpperCase()));) {
+
             if (rs == null) {
-                error("Table not found: " + tableName);
-                return;
+                throw new PojoWriterException("table not found");
             }
 
             final ResultSetMetaData meta = rs.getMetaData();
 
             final List<DbColumn> columns = new ArrayList<>();
             int count = meta.getColumnCount();
-            IntStream.range(1, count+1).forEach(i -> {
+            for (int i = 1; i <= meta.getColumnCount(); i++) {
                 DbColumn column = buildDbColumn(meta, i);
                 if (column != null) {
                     columns.add(column);
                 }
-            });
-
-            if (count == 0) {
-                info("table not found: " + tableName);
             }
 
-            generatePojo(tableName, columns);
+            if (count == 0) {
+                throw new PojoWriterException("no columns found in table");
+            }
+
+            String pojoPath = generatePojo(tableName, columns);
+            info("[table=" + tableName + "] generated pojo file: " + pojoPath);
 
         } catch (Exception e) {
-            error("Statement Failed: " + e.getMessage());
+            error("[table=" + tableName + "] " + e.getMessage().trim());
         }
     }
 
@@ -164,7 +168,7 @@ public class PojoWriter extends Thread {
      * @param columnId
      * @return
      */
-    private DbColumn buildDbColumn(ResultSetMetaData meta, int columnId) {
+    private DbColumn buildDbColumn(ResultSetMetaData meta, int columnId) throws PojoWriterException {
         if (meta == null) {
             return null;
         }
@@ -188,8 +192,7 @@ public class PojoWriter extends Thread {
 
             return column;
         } catch (SQLException sqle) {
-            error(sqle.getMessage());
-            return null;
+            throw new PojoWriterException(sqle.getMessage());
         }
     }
 
@@ -198,9 +201,9 @@ public class PojoWriter extends Thread {
      * @param tableName
      * @param columns
      */
-    private void generatePojo(final String tableName, final List<DbColumn> columns) {
+    private String generatePojo(final String tableName, final List<DbColumn> columns) throws PojoWriterException {
         if (tableName == null || CollectionUtils.isEmpty(columns)) {
-            return;
+            throw new PojoWriterException("invalid table name");
         }
 
         final Set<String> imports = new HashSet<>();
@@ -212,6 +215,13 @@ public class PojoWriter extends Thread {
         });
 
         StringBuilder sb = new StringBuilder();
+
+        String pkg = prefs.getPkg();
+        if (StringUtils.isBlank(pkg)) {
+            pkg = "pojo";
+        }
+        sb.append("package ").append(pkg).append(";").append(NEW_LINE);
+        sb.append(NEW_LINE);
 
         imports.forEach(s -> sb.append(s).append(NEW_LINE));
         sb.append(NEW_LINE);
@@ -227,11 +237,7 @@ public class PojoWriter extends Thread {
 
         sb.append("}");
 
-        System.out.println("table=" + tableName + ", pojo=" + pojoName);
-        System.out.println("--------------------------------------------------------------");
-        System.out.println(sb.toString());
-        System.out.println("--------------------------------------------------------------");
-        System.out.println();
+        return writePojo(pojoName, sb.toString());
     }
 
     /**
@@ -337,11 +343,56 @@ public class PojoWriter extends Thread {
     }
 
     /**
+     * writes pojo into directory
+     * @param pojoStr
+     */
+    private String writePojo(String pojoName, String pojoStr) throws PojoWriterException {
+        if (StringUtils.isBlank(pojoName) || StringUtils.isEmpty(pojoStr)) {
+            throw new PojoWriterException("no pojo content, skipping write");
+        }
+
+        String pkg = prefs.getPkg();
+        if (StringUtils.isBlank(pkg)) {
+            pkg = "pojo";
+        }
+
+        String dir = prefs.getDir();
+        if (StringUtils.isBlank(dir)) {
+            dir = "out";
+        }
+
+        Path curr = Paths.get(".");
+        Path out = Paths.get(dir, pkg.split("\\."));
+        Path targetDir = curr.resolve(out).normalize();
+
+        try {
+            Files.createDirectories(targetDir);
+        } catch (IOException e) {
+            throw new PojoWriterException("could not create targetDir: " + targetDir.toString() + ", error: " + e.getMessage());
+        }
+
+        if (!targetDir.toFile().exists() || !targetDir.toFile().isDirectory()) {
+            throw new PojoWriterException("pojo directory not exists: " + targetDir.toAbsolutePath());
+        }
+
+        Path targetFile = Paths.get(targetDir.toString(), pojoName + ".java");
+
+        try {
+            Files.write(targetFile, pojoStr.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+
+            return targetFile.toString();
+
+        } catch (IOException e) {
+            throw new PojoWriterException("could not write pojo file: " + e.getMessage());
+        }
+    }
+
+    /**
      * error print
      * @param msg
      */
     private void error(String msg) {
-        System.out.println("(" + getName() + ") ERROR [" + this.getName() + "]: " + msg);
+        System.out.println("(" + getName() + ") ERROR: " + msg);
     }
 
     /**
@@ -349,6 +400,6 @@ public class PojoWriter extends Thread {
      * @param msg
      */
     private void info(String msg) {
-        System.out.println("(" + getName() + ") INFO [" + this.getName() + "]: " + msg);
+        System.out.println("(" + getName() + ") INFO: " + msg);
     }
 }

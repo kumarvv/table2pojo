@@ -23,7 +23,6 @@ import com.kumarvv.table2pojo.core.TableReader;
 import com.kumarvv.table2pojo.model.UserPrefs;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -109,7 +108,7 @@ public class Table2Pojo {
                 info("tables=all");
             } else if (line.hasOption("t")) {
                 prefs.setAllTables(false);
-                prefs.setTables(line.getOptionValues("h"));
+                prefs.setTables(line.getOptionValues("t"));
                 info("tables=" + Arrays.toString(prefs.getTables()));
             }
 
@@ -151,14 +150,6 @@ public class Table2Pojo {
         if (!prefs.isAllTables() && ArrayUtils.isEmpty(prefs.getTables())) {
             error("choose \"all\" or \"tables\" option with list of tables");
             return false;
-        }
-
-        if (StringUtils.isNotBlank(prefs.getDir())) {
-            File dir = new File(prefs.getDir());
-            if (!dir.exists() || !dir.isDirectory()) {
-                error("invalid directory: " + prefs.getDir());
-                return false;
-            }
         }
 
         return true;
@@ -209,7 +200,7 @@ public class Table2Pojo {
             return;
         }
 
-        final BlockingQueue<String> queue = new LinkedBlockingDeque<>(prefs.getNumThreads());
+        final BlockingQueue<String> queue = new LinkedBlockingDeque<>();
 
         TableReader reader = new TableReader(prefs, conn, queue);
         reader.setName("reader");
@@ -217,7 +208,7 @@ public class Table2Pojo {
 
         final List<PojoWriter> writers = new ArrayList<>();
         IntStream.range(0, prefs.getNumThreads()).forEach(i -> {
-            writers.add(new PojoWriter(prefs, conn, queue));
+            writers.add(new PojoWriter(prefs, conn, queue, i));
         });
 
         writers.forEach(Thread::start);
@@ -232,6 +223,8 @@ public class Table2Pojo {
             } catch (InterruptedException ie) {
             }
         });
+
+
     }
 
     /**

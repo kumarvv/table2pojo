@@ -45,6 +45,7 @@ public class TableReader extends Thread {
         this.prefs = prefs;
         this.conn = conn;
         this.queue = queue;
+        this.setName("reader-0");
     }
 
     /**
@@ -61,6 +62,7 @@ public class TableReader extends Thread {
         } else {
             loadTablesPrefs();
         }
+        info("DONE");
     }
 
     /**
