@@ -21,7 +21,6 @@ package com.kumarvv.table2pojo.core;
 import com.kumarvv.table2pojo.model.UserPrefs;
 
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -62,6 +61,7 @@ public class TableReader extends Thread {
         } else {
             loadTablesPrefs();
         }
+
         info("DONE");
     }
 
@@ -70,16 +70,14 @@ public class TableReader extends Thread {
      */
     protected void loadTablesDb() {
         info("reading all tables from database...");
-        try {
-            DatabaseMetaData md = conn.getMetaData();
-            ResultSet rs = md.getTables(null, null, "%", new String[] {"TABLE"});
+        try (ResultSet rs = conn.getMetaData().getTables(null, null, "%", new String[] {"TABLE"});){
             while (rs.next()) {
                 queue.offer(rs.getString(3));
             }
         } catch (SQLException sqle) {
             error(sqle.getMessage());
         } finally {
-            IntStream.range(0, prefs.getNumThreads()).forEach(i -> queue.offer(DONE));
+            addDoneObjects();
         }
     }
 
@@ -91,8 +89,15 @@ public class TableReader extends Thread {
         try {
             Arrays.stream(prefs.getTables()).forEach(queue::offer);
         } finally {
-            IntStream.range(0, prefs.getNumThreads()).forEach(i -> queue.offer(DONE));
+            addDoneObjects();
         }
+    }
+
+    /**
+     * add DONE objects to close the running writers
+     */
+    protected void addDoneObjects() {
+        IntStream.range(0, prefs.getNumThreads()).forEach(i -> queue.offer(DONE));
     }
 
     /**

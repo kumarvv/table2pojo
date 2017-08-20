@@ -25,7 +25,7 @@ public class UserPrefs {
     private String[] tables;
     private String pkg;
     private String dir;
-    private int numThreads = 5;
+    private int numThreads = 2;
 
     public boolean isAllTables() {
         return allTables;

@@ -67,14 +67,18 @@ public class Table2Pojo {
             return;
         }
 
+        long millis = System.currentTimeMillis();
+
         info("connecting to database...");
         try (Connection conn = connect()) {
+            millis = System.currentTimeMillis();
             info("processing tables...");
             start(prefs, conn);
         } catch (Exception e) {
             error(e.getMessage());
         } finally {
-            info("ALL DONE!");
+            long elapsed = System.currentTimeMillis() -millis;
+            info("ALL DONE! (elapsed: " + elapsed + "ms)");
         }
     }
 
@@ -223,8 +227,6 @@ public class Table2Pojo {
             } catch (InterruptedException ie) {
             }
         });
-
-
     }
 
     /**
