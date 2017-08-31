@@ -295,7 +295,7 @@ public class PojoWriter extends Thread {
 
         sb.append(NEW_LINE);
 
-        sb.append("\tpublic ").append(column.getJavaType()).append(" set").append(toMethodName(column.getName())).append("(")
+        sb.append("\tpublic void ").append("set").append(toMethodName(column.getName())).append("(")
                 .append(column.getJavaType()).append(" ").append(column.getJavaProperty()).append(")").append(" {\n");
         sb.append("\t\tthis.").append(column.getJavaProperty()).append(" = ").append(column.getJavaProperty()).append(";").append(NEW_LINE);
         sb.append("\t}\n");

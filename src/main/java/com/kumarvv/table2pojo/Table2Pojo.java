@@ -91,7 +91,7 @@ public class Table2Pojo {
         try {
             Options options = new Options();
             options.addOption("a", "all", false, "generate POJOs for all the tables in database");
-            options.addOption("t", "tables", true, "list of database tables delimited by ; (semicolon). overrides `a` option");
+            options.addOption("t", "tables", true, "list of database tables delimited by , (comma). overrides `a` option");
             options.addOption("p", "pkg", true, "(optional) java package name of the POJOs. If not specified, default/blank package will be used");
             options.addOption("d", "dir", true, "(optional) target directory where POJOs (.Java files) are generated. If not specified, current directory will be used");
             options.addOption("r", "threads", true, "(optional) number of concurrent threads, default 5");
@@ -112,7 +112,8 @@ public class Table2Pojo {
                 info("tables=all");
             } else if (line.hasOption("t")) {
                 prefs.setAllTables(false);
-                prefs.setTables(line.getOptionValues("t"));
+                String[] tables = line.getOptionValue("t").split(",");
+                prefs.setTables(tables);
                 info("tables=" + Arrays.toString(prefs.getTables()));
             }
 
