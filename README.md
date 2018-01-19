@@ -1,6 +1,6 @@
 # Table2Pojo
 
-Simple tool to generate POJO classes from database tables/columns. 
+Simple tool to generate POJO classes from database tables/columns. ###
 
 Supports all JDBC supported databases. Includes following JDBC drivers: 
 - Oracle 
