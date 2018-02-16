@@ -32,6 +32,7 @@ import java.nio.file.StandardOpenOption;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
+import java.util.stream.Collectors;
 
 import static com.kumarvv.table2pojo.model.UserPrefs.DONE;
 
@@ -156,6 +157,10 @@ public class PojoWriter extends Thread {
 
             String pojoPath = generatePojo(tableName, columns);
             info("[table=" + tableName + "] generated pojo file: " + pojoPath);
+
+            String xmlPath = generateMyBatisXml(tableName, columns);
+            info("[table=" + tableName + "] generated xml file: " + xmlPath);
+
 
         } catch (Exception e) {
             error("[table=" + tableName + "] " + e.getMessage().trim());
@@ -386,6 +391,249 @@ public class PojoWriter extends Thread {
             throw new PojoWriterException("could not write pojo file: " + e.getMessage());
         }
     }
+
+
+    /**
+     * generate pojo
+     * @param tableName
+     * @param columns
+     */
+    private String generateMyBatisXml(final String tableName, final List<DbColumn> columns) throws PojoWriterException {
+        if (tableName == null || CollectionUtils.isEmpty(columns)) {
+            throw new PojoWriterException("invalid table name");
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        // XML header
+        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n" +
+                "<!DOCTYPE mapper\n" +
+                "        PUBLIC \"-//mybatis.org//DTD Mapper 3.0//EN\"\n" +
+                "        \"http://mybatis.org/dtd/mybatis-3-mapper.dtd\">\n");
+        sb.append(NEW_LINE);
+
+        String pkg = prefs.getPkg();
+        if (StringUtils.isBlank(pkg)) {
+            pkg = "pojo";
+        }
+        String className = toMethodName(tableName);
+        String fqdn = pkg + "." + className;
+
+        // open Namespace
+        sb.append("<mapper namespace=\"").append(className).append("\">\n");
+
+        sb.append(generateMyBatisBaseSql(tableName, columns)).append("\n");
+        sb.append(generateMyBatisList(tableName, columns, fqdn)).append("\n");
+        sb.append(generateMyBatisOne(tableName, columns, fqdn)).append("\n");
+        sb.append(generateMyBatisSearch(tableName, columns, fqdn)).append("\n");
+        sb.append(generateMyBatisInsert(tableName, columns, fqdn)).append("\n");
+        sb.append(generateMyBatisUpdate(tableName, columns, fqdn)).append("\n");
+        sb.append(generateMyBatisDelete(tableName, columns, fqdn));
+
+        // close Namespace
+        sb.append("</mapper>\n");
+
+        return writeMyBatisXml(className, sb.toString());
+    }
+
+    private String generateMyBatisBaseSql(final String tableName, final List<DbColumn> columns) throws PojoWriterException {
+        if (tableName == null || CollectionUtils.isEmpty(columns)) {
+            throw new PojoWriterException("invalid table name");
+        }
+
+        String tableNameU = tableName.toUpperCase();
+        String tablePrefix = tableNameU.substring(0, 1);
+
+        StringBuilder sql = new StringBuilder();
+
+        sql.append("\t").append("<sql id=\"sql_select_all\">\n");
+        sql.append("\t\tSELECT \n");
+
+        String columnStr = columns.stream()
+                .map(col -> tablePrefix + "." + col.getName())
+                .collect(Collectors.joining(",\n\t\t\t", "\t\t\t", ""));
+        sql.append(columnStr).append("\n");
+
+        sql.append("\t\tFROM ").append(tableNameU).append(" ").append(tablePrefix).append("\n");
+        sql.append("\t").append("</sql>\n");
+
+        return sql.toString();
+    }
+
+    private String generateMyBatisList(final String tableName, final List<DbColumn> columns, final String fqdn) throws PojoWriterException {
+        if (tableName == null || CollectionUtils.isEmpty(columns)) {
+            throw new PojoWriterException("invalid table name");
+        }
+
+        StringBuilder sql = new StringBuilder();
+
+        sql.append("\t").append("<select id=\"list\" resultType=\"").append(fqdn).append("\">\n");
+        sql.append("\t\t<include refid=\"sql_select_all\"/>\n");
+        sql.append("\t").append("</select>\n");
+
+        return sql.toString();
+    }
+
+    private String generateMyBatisOne(final String tableName, final List<DbColumn> columns, final String fqdn) throws PojoWriterException {
+        if (tableName == null || CollectionUtils.isEmpty(columns)) {
+            throw new PojoWriterException("invalid table name");
+        }
+
+        String tableNameU = tableName.toUpperCase();
+        String tablePrefix = tableNameU.substring(0, 1);
+
+        StringBuilder sql = new StringBuilder();
+
+        sql.append("\t").append("<select id=\"one\" parameterType=\"map\" resultType=\"").append(fqdn).append("\">\n");
+        sql.append("\t\t<include refid=\"sql_select_all\"/>\n");
+        sql.append("\t\t").append("WHERE ").append(tablePrefix).append(".ID = #{id}\n");
+        sql.append("\t").append("</select>\n");
+
+        return sql.toString();
+    }
+
+    private String generateMyBatisSearch(final String tableName, final List<DbColumn> columns, final String fqdn) throws PojoWriterException {
+        if (tableName == null || CollectionUtils.isEmpty(columns)) {
+            throw new PojoWriterException("invalid table name");
+        }
+
+        String tableNameU = tableName.toUpperCase();
+        String tablePrefix = tableNameU.substring(0, 1);
+
+        StringBuilder sql = new StringBuilder();
+
+        sql.append("\t").append("<select id=\"search\" parameterType=\"map\" resultType=\"").append(fqdn).append("\">\n");
+        sql.append("\t\t<include refid=\"sql_select_all\"/>\n");
+        sql.append("\t\t").append("WHERE ").append(tablePrefix).append(".code LIKE #{value}\n");
+        sql.append("\t").append("</select>\n");
+
+        return sql.toString();
+    }
+
+    private String generateMyBatisInsert(final String tableName, final List<DbColumn> columns, final String fqdn) throws PojoWriterException {
+        if (tableName == null || CollectionUtils.isEmpty(columns)) {
+            throw new PojoWriterException("invalid table name");
+        }
+
+        String tableNameU = tableName.toUpperCase();
+        String tablePrefix = tableNameU.substring(0, 1);
+        String className = toMethodName(tableName);
+
+        StringBuilder sql = new StringBuilder();
+
+        sql.append("\t").append("<insert id=\"insert\" parameterType=\"").append(fqdn).append("\" useGeneratedKeys=\"true\"\n" +
+                "            keyProperty=\"id\" keyColumn=\"ID\"").append(">\n");
+        sql.append("\t\tINSERT INTO ").append(tableNameU).append("\n");
+        sql.append("\t\t\t(\n");
+
+        String columnsIns = columns.stream()
+                .map(col -> col.getName()).collect(Collectors.joining(", "));
+
+        sql.append("\t\t\t\t").append(columnsIns).append("\n");
+        sql.append("\t\t\t)\n");
+        sql.append("\t\tVALUES\n");
+        sql.append("\t\t\t(\n");
+
+        String columnsVal = columns.stream()
+                .map(col -> "#{" + toCamelCase(col.getName()) + "}").collect(Collectors.joining(", "));
+
+
+        sql.append("\t\t\t\t").append(columnsVal).append("\n");
+        sql.append("\t\t\t)\n");
+        sql.append("\t").append("</insert>\n");
+
+        return sql.toString();
+    }
+
+    private String generateMyBatisUpdate(final String tableName, final List<DbColumn> columns, final String fqdn) throws PojoWriterException {
+        if (tableName == null || CollectionUtils.isEmpty(columns)) {
+            throw new PojoWriterException("invalid table name");
+        }
+
+        String tableNameU = tableName.toUpperCase();
+        String className = toMethodName(tableName);
+
+        StringBuilder sql = new StringBuilder();
+
+        sql.append("\t").append("<update id=\"update\" parameterType=\"").append(fqdn).append("\">\n");
+        sql.append("\t\tUPDATE ").append(tableNameU).append("\n");
+        sql.append("\t\tSET\n");
+
+        String columnsIns = columns.stream()
+                .map(col -> col.getName() + " = #{" + toCamelCase(col.getName()) + "}")
+                .collect(Collectors.joining(", \n\t\t\t"));
+
+        sql.append("\t\t\t").append(columnsIns).append("\n");
+        sql.append("\t\tWHERE ID = #{id}\n");
+
+        sql.append("\t").append("</update>\n");
+
+        return sql.toString();
+    }
+
+    private String generateMyBatisDelete(final String tableName, final List<DbColumn> columns, final String fqdn) throws PojoWriterException {
+        if (tableName == null || CollectionUtils.isEmpty(columns)) {
+            throw new PojoWriterException("invalid table name");
+        }
+
+        String tableNameU = tableName.toUpperCase();
+        String tablePrefix = tableNameU.substring(0, 1);
+
+        StringBuilder sql = new StringBuilder();
+
+        sql.append("\t").append("<delete id=\"delete\" parameterType=\"map\">\n");
+        sql.append("\t\tDELETE FROM ").append(tableNameU).append(" \n");
+        sql.append("\t\t").append("WHERE ").append(tablePrefix).append(".ID = #{value}\n");
+        sql.append("\t").append("</delete>\n");
+
+        return sql.toString();
+    }
+
+    /**
+     * writes pojo into directory
+     * @param pojoStr
+     */
+    private String writeMyBatisXml(String pojoName, String pojoStr) throws PojoWriterException {
+        if (StringUtils.isBlank(pojoName) || StringUtils.isEmpty(pojoStr)) {
+            throw new PojoWriterException("no pojo content, skipping write");
+        }
+
+        String pkg = prefs.getPkg();
+        if (StringUtils.isBlank(pkg)) {
+            pkg = "pojo";
+        }
+
+        String dir = prefs.getDir();
+        if (StringUtils.isBlank(dir)) {
+            dir = "out";
+        }
+
+        Path curr = Paths.get(".");
+        Path out = Paths.get(dir, pkg.split("\\."));
+        Path targetDir = curr.resolve(out).normalize();
+
+        try {
+            Files.createDirectories(targetDir);
+        } catch (IOException e) {
+            throw new PojoWriterException("could not create targetDir: " + targetDir.toString() + ", error: " + e.getMessage());
+        }
+
+        if (!targetDir.toFile().exists() || !targetDir.toFile().isDirectory()) {
+            throw new PojoWriterException("pojo directory not exists: " + targetDir.toAbsolutePath());
+        }
+
+        Path targetFile = Paths.get(targetDir.toString(), pojoName + ".xml");
+
+        try {
+            Files.write(targetFile, pojoStr.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+
+            return targetFile.toString();
+
+        } catch (IOException e) {
+            throw new PojoWriterException("could not write pojo file: " + e.getMessage());
+        }
+    }
+
 
     /**
      * error print
