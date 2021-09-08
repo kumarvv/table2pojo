@@ -226,7 +226,7 @@ public class PojoWriter extends Thread {
         imports.forEach(s -> sb.append(s).append(NEW_LINE));
         sb.append(NEW_LINE);
 
-        String pojoName = toMethodName(tableName);
+        String pojoName =tableName+"Entity";// toMethodName(tableName);
         sb.append("public class ").append(pojoName);
         sb.append(" implements Serializable {").append(NEW_LINE);
 
@@ -236,7 +236,13 @@ public class PojoWriter extends Thread {
         methods.forEach(s -> sb.append(s).append(NEW_LINE));
 
         sb.append("}");
-
+        writePojo(tableName+"Repository","import org.springframework.data.jpa.repository.JpaRepository;\n" + 
+        		"import org.springframework.stereotype.Repository;\n" + 
+        		"\n" + 
+        		"@Repository\n" + 
+        		"public interface CompaniesRepository extends JpaRepository<"+tableName+"Entity, Long> {\n" + 
+        		"		 \n" + 
+        		"}");
         return writePojo(pojoName, sb.toString());
     }
 
