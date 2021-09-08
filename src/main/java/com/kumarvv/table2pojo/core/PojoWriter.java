@@ -133,7 +133,7 @@ public class PojoWriter extends Thread {
         }
 
         try (Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(String.format(SQL_ALL, tableName.toUpperCase()));) {
+				ResultSet rs = stmt.executeQuery(String.format(SQL_ALL, tableName/* .toUpperCase() */));) {
 
             if (rs == null) {
                 throw new PojoWriterException("table not found");
