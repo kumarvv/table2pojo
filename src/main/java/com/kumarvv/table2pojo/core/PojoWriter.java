@@ -40,6 +40,7 @@ public class PojoWriter extends Thread {
     private static final String SQL_ALL = "select * from %s where 1>2";
 
     private static final Map<Integer, String> MAP_TYPES = new HashMap<>();
+
     static {
         MAP_TYPES.put(Types.CHAR, "String");
         MAP_TYPES.put(Types.VARCHAR, "String");
@@ -69,6 +70,7 @@ public class PojoWriter extends Thread {
     }
 
     private static final Map<String, String> MAP_IMPORTS = new HashMap<>();
+
     static {
         MAP_IMPORTS.put("BigDecimal", "java.math.BigDecimal");
         MAP_IMPORTS.put("Date", "java.util.Date");
@@ -84,6 +86,7 @@ public class PojoWriter extends Thread {
 
     /**
      * requires connection and table
+     *
      * @param prefs
      * @param conn
      */
@@ -124,6 +127,7 @@ public class PojoWriter extends Thread {
 
     /**
      * process
+     *
      * @param conn
      * @param tableName
      */
@@ -133,7 +137,7 @@ public class PojoWriter extends Thread {
         }
 
         try (Statement stmt = conn.createStatement();
-				ResultSet rs = stmt.executeQuery(String.format(SQL_ALL, tableName));) {
+             ResultSet rs = stmt.executeQuery(String.format(SQL_ALL, tableName));) {
 
             if (rs == null) {
                 throw new PojoWriterException("table not found");
@@ -164,6 +168,7 @@ public class PojoWriter extends Thread {
 
     /**
      * build column using result meta
+     *
      * @param meta
      * @param columnId
      * @return
@@ -198,6 +203,7 @@ public class PojoWriter extends Thread {
 
     /**
      * generate pojo
+     *
      * @param tableName
      * @param columns
      */
@@ -226,7 +232,7 @@ public class PojoWriter extends Thread {
         imports.forEach(s -> sb.append(s).append(NEW_LINE));
         sb.append(NEW_LINE);
 
-        String pojoName =toMethodName(tableName);
+        String pojoName = toMethodName(tableName);
         sb.append("public class ").append(pojoName);
         sb.append(" implements Serializable {").append(NEW_LINE);
 
@@ -242,6 +248,7 @@ public class PojoWriter extends Thread {
 
     /**
      * generate pojo column details
+     *
      * @param column
      * @param imports
      * @param properties
@@ -264,6 +271,7 @@ public class PojoWriter extends Thread {
 
     /**
      * generate propertiy line
+     *
      * @param column
      * @return
      */
@@ -280,6 +288,7 @@ public class PojoWriter extends Thread {
 
     /**
      * generate getter/setter for column
+     *
      * @param column
      * @return
      */
@@ -305,6 +314,7 @@ public class PojoWriter extends Thread {
 
     /**
      * get java type
+     *
      * @param column
      * @return
      */
@@ -326,6 +336,7 @@ public class PojoWriter extends Thread {
 
     /**
      * db columnName to camelCaseName
+     *
      * @param str
      * @return
      */
@@ -335,6 +346,7 @@ public class PojoWriter extends Thread {
 
     /**
      * db columnName to camelCaseName
+     *
      * @param str
      * @return
      */
@@ -344,6 +356,7 @@ public class PojoWriter extends Thread {
 
     /**
      * writes pojo into directory
+     *
      * @param pojoStr
      */
     private String writePojo(String pojoName, String pojoStr) throws PojoWriterException {
@@ -389,6 +402,7 @@ public class PojoWriter extends Thread {
 
     /**
      * error print
+     *
      * @param msg
      */
     private void error(String msg) {
@@ -397,6 +411,7 @@ public class PojoWriter extends Thread {
 
     /**
      * info print
+     *
      * @param msg
      */
     private void info(String msg) {
