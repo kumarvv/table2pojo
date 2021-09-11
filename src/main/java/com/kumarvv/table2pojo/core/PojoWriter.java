@@ -133,7 +133,7 @@ public class PojoWriter extends Thread {
         }
 
         try (Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(String.format(SQL_ALL, tableName.toUpperCase()));) {
+				ResultSet rs = stmt.executeQuery(String.format(SQL_ALL, tableName));) {
 
             if (rs == null) {
                 throw new PojoWriterException("table not found");
@@ -226,7 +226,7 @@ public class PojoWriter extends Thread {
         imports.forEach(s -> sb.append(s).append(NEW_LINE));
         sb.append(NEW_LINE);
 
-        String pojoName = toMethodName(tableName);
+        String pojoName =toMethodName(tableName);
         sb.append("public class ").append(pojoName);
         sb.append(" implements Serializable {").append(NEW_LINE);
 
