@@ -20,7 +20,7 @@ package com.kumarvv.table2pojo.core;
 
 import com.kumarvv.table2pojo.model.DbColumn;
 import com.kumarvv.table2pojo.model.UserPrefs;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.WordUtils;
 
